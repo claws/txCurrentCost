@@ -26,7 +26,6 @@ class Sensors(object):
     # Defines the maximum number of sensors available.
     # 0 - Whole House sensor 
     # 1-9 Appliance sensors
-#    # 10 Temperature
     Maximum = 10
     
     WholeHouseSensorId = 0

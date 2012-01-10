@@ -122,7 +122,9 @@ class Monitor(object):
         @param sensor_data: sensor specific periodic data. This can vary depending on the 
                             sensor type and instance.
         
-        Implement this method 
+        Implement this method to handle data in the way you want. For example you may
+        want to update it to Pachube. Perhaps you want to store it for a while, average
+        it and then post it to Pachube. Whatever! 
         """
         pass
         
@@ -138,6 +140,9 @@ class Monitor(object):
         @param sensorHistoryData: A dict keyed by sensor identifier with values of
                                   HistoricalSensorData objects.
         @type sensorHistoryData: dict
+
+        Implement this method to handle data in the way you want. For example you may
+        want to store it to a database. Whatever!
         """
         pass
         
