@@ -21,18 +21,12 @@ class MonitorConfig(object):
     SECTIONS = [CURRENT_COST_SECTION]
     
     # fields
-    LOGFILE = "logfile"
-    LOGFORMAT = "logformat"
-    LOGLEVEL = "loglevel"
     PORT = "port"
     BAUDRATE = "baudrate"
     CLAMP_COUNT = "clamp_count"
     USE_UTC_TIMESTAMPS = "use_utc_timestamps"
 
-    FIELDS = [LOGFILE,
-              LOGFORMAT,
-              LOGLEVEL,
-              PORT,
+    FIELDS = [PORT,
               BAUDRATE,
               CLAMP_COUNT,
               USE_UTC_TIMESTAMPS]
@@ -44,8 +38,6 @@ class MonitorConfig(object):
         self.config_file = config_file
         
         # attribute populated after config file parsing
-        self.logfile = None
-        self.loglevel = None
         self.port = None
         self.baudrate = None
         self.clamp_count = None
@@ -56,28 +48,6 @@ class MonitorConfig(object):
     def parse(self, config_file):
         parser = ConfigParser.SafeConfigParser()
         parser.read(config_file)
-        
-        # current cost settings
-        
-        logfile = parser.get(MonitorConfig.CURRENT_COST_SECTION, MonitorConfig.LOGFILE)
-        if logfile and logfile.lower() == "none":
-            self.logfile = sys.stdout
-        else:
-            self.logfile = logfile
-        
-        self.logformat = parser.get(MonitorConfig.CURRENT_COST_SECTION, MonitorConfig.LOGFORMAT, raw=True)
-        
-        loglevel = parser.get(MonitorConfig.CURRENT_COST_SECTION, MonitorConfig.LOGLEVEL)
-        DESCRIPTION_TO_LEVEL = {"debug" : logging.DEBUG,
-                                "info" : logging.INFO,
-                                "warning" : logging.WARNING,
-                                "error" : logging.ERROR}
-        if loglevel in DESCRIPTION_TO_LEVEL:
-            self.loglevel = DESCRIPTION_TO_LEVEL[loglevel]
-        else:
-            # default to error level logging
-            self.loglevel = logging.ERROR
-        
         
         self.port = parser.get(MonitorConfig.CURRENT_COST_SECTION, MonitorConfig.PORT)
         self.baudrate = parser.getint(MonitorConfig.CURRENT_COST_SECTION, MonitorConfig.BAUDRATE)
@@ -91,9 +61,12 @@ class MonitorConfig(object):
 class Monitor(object):
     """ Monitor a current cost device. """
     
-    def __init__(self, config_file):
-        
-        self.config = MonitorConfig(config_file)
+    def __init__(self, config):
+        """
+        @param config: A MonitorConfig instance holding configuration settings
+        @type config: a MonitorConfig instance
+        """ 
+        self.config = config
         self.serialPort = None
         self.protocol = None
         
@@ -388,12 +361,12 @@ if __name__ == "__main__":
     # Send Twisted log messages to logging logger
     _observer = log.PythonLoggingObserver()
     _observer.start()
+    
+    logging.basicConfig(level=logging.DEBUG,
+                        format="%(asctime)s %(levelname)s [%(funcName)s] %(message)s")
 
     config_file = o.opts['configfile']
     monitor = Monitor(config_file)
-    logging.basicConfig(level=monitor.config.loglevel,
-                        format=monitor.config.logformat,
-                        logfile=monitor.config.logfile)    
     reactor.callWhenRunning(monitor.start)
     reactor.run()
     

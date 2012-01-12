@@ -13,7 +13,7 @@ except ImportError:
     import sys
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     import txCurrentCost
-from txCurrentCost.monitor import Monitor
+from txCurrentCost.monitor import MonitorConfig, Monitor
 
 
 
@@ -75,7 +75,7 @@ class BasicMonitor(Monitor):
             
 if __name__ == "__main__":
 
-    config_file = 'monitor.cfg'
-    monitor = BasicMonitor(config_file)
+    monitorConfig = MonitorConfig('monitor.cfg')
+    monitor = BasicMonitor(monitorConfig)
     reactor.callWhenRunning(monitor.start)
     reactor.run()
