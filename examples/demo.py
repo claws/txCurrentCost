@@ -74,6 +74,8 @@ class BasicMonitor(Monitor):
             
             
 if __name__ == "__main__":
+    import logging
+    logging.basicConfig(level=logging.DEBUG)
 
     monitorConfig = MonitorConfig('monitor.cfg')
     monitor = BasicMonitor(monitorConfig)
