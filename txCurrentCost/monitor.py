@@ -260,24 +260,28 @@ class Monitor(object):
             sensor_type = int(history.findtext("type"))
 
 
-            # 
+            # Add a new key for the sensor type if one does not yet exist.
             if sensor_type not in self.historicSensorData:
                 self.historicSensorData[sensor_type] = {}
                 
-            
+            # Add a new key for the timeout handler
+            if sensor_type not in self.historicalDataUpdateCompleteForSensorType:
+                self.historicalDataUpdateCompleteForSensorType[sensor_type] = None            
 
             # Start a callback timer, for this particular sensor type, that will be 
             # used to detect the completion of the historic data message cycle and
             # pass the collected historic data to the handleHistoryUpdate method.
             # If a message is received within the timeout window then the reset.
             #
+
+                
             if self.historicalDataUpdateCompleteForSensorType[sensor_type] is None:
                 self.historicalDataUpdateCompleteForSensorType[sensor_type] = reactor.callLater(self.historicDataMessageTimeout, 
-                                                                             self._historicalDataUpdateCompleted,
-                                                                             sensor_type)
+                                                                                                self._historicalDataUpdateCompleted,
+                                                                                                sensor_type)
             else:
                 # delay history data completed job another timeout period.
-                self.historicalDataUpdateCompleteForSensorType[sensor_type].delay(self.historicalDataMessageTimeout)
+                self.historicalDataUpdateCompleteForSensorType[sensor_type].delay(self.historicDataMessageTimeout)
 
 
             
@@ -293,7 +297,7 @@ class Monitor(object):
                 logging.debug("Processing historical data for sensor %s" % sensor_instance)
                 
                 datapoints = []   
-                for historical_element in data_element.iter():
+                for historical_element in data_element:
                     tag = historical_element.tag
                     value = historical_element.text
                     if tag == "sensor":
@@ -317,13 +321,15 @@ class Monitor(object):
         @param sensor_type: The sensor type that has completed it's history cycle.
         @type sensor_type: A Sensors.Types item
         """
+        logging.debug("History update cycle completed for sensor type: %s" % sensor_type)
+        
         self.historicalDataUpdateCompleteForSensorType[sensor_type] = None
         historicDataForSensorType = self.historicSensorData[sensor_type]
         
         # Only pass on sensor historical data for sensors that actually contain data.
         sensorsWithHistoricalData = {}
         for sensor_id, sensorHistoricalData in historicDataForSensorType.items():
-            if sensorHistoricalData.nonZeroDataPresent:
+            if sensorHistoricalData.dataPresent:
                 sensorsWithHistoricalData[sensor_id] = sensorHistoricalData
         
         self.historyUpdateReceived(sensor_type, sensorsWithHistoricalData)

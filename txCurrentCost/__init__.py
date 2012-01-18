@@ -1,5 +1,5 @@
 
-
+import json
 try:
     from xml.etree import cElementTree as etree
 except ImportError:
@@ -41,7 +41,7 @@ class Sensors(object):
 
     
     # Sensor Types
-    TemperatureSensor = 0 # A psuedo kind used for realtime updates
+    TemperatureSensor = 0 # A psuedo kind used for periodic updates
     ElectricitySensor = 1 # Whole House unit, IAM's, etc
     OptiSmartSensor = 2   # Impulse sensor
     
@@ -117,11 +117,13 @@ class HistoricalSensorData(object):
         # year entries even when the content is entirely zeros. If any value
         # is non-zero this flag is set. This can be useful if we only want to 
         # process historical sensor data that actually contains data.
-        self.nonZeroDataPresent = False
+        self.dataPresent = False
 
 
     def _getDataPointKind(self, tag):
-        """ Detect the kind of history data point kind of the tag """
+        """ 
+        Detect the kind of history data point kind of the tag
+        """
         tag_prefix = tag[0]
         if tag_prefix in HistoricalSensorData.Historic_Data_Prefixes:
             history_data_kind = HistoricalSensorData.Prefix_To_Data_Kind_Map[tag_prefix]
@@ -129,23 +131,101 @@ class HistoricalSensorData(object):
         else:
             logging.error("Unknown tag prefix \'%s\', can't resolve to history data kind" % (tag_prefix)) 
 
+ 
+    def _sortKeys(self, keys):
+        """
+        Sort data keys in correct order
+        """
+        # tuples are sorted by the first index by default, so place
+        # the integer value of the key at index zero and sort.
+        key_and_value_list = [(int(key[1:]), key) for key in keys]
+        key_and_value_list.sort()
+        ordered_keys = [key for value, key in key_and_value_list]
+        return ordered_keys
 
+    
+    def _getData(self, dataDict):
+        """
+        Return a list of tuples containing the data in ascending tag order.
+        Each tuple contains the data tag and the value. This approach
+        ensures the data is returned in correct order and also keeps the
+        data tag with the value - which means the value can't be misinterpreted
+        as belonging to a different tag in cases where intervening tags are
+        missing.
+        """
+        sortedData = []
+        dataKeys = self._sortKeys(dataDict.keys())
+        for dataKey in dataKeys:
+            datapoint = (dataKey, dataDict[dataKey])
+            sortedData.append(datapoint)
+        return sortedData            
+
+
+    def _checkForActualData(self, value):
+        """
+        Set a flag on this sensor if non-zero data is observed.
+        """
+        if not self.dataPresent:
+            if float(value) > 0:
+                self.dataPresent = True
+                
+                
+    def getHourData(self):
+        """
+        Return a list of tuples containing hour data in ascending tag order.
+        """
+        return self._getData(self.hourData)
+    
+    def getDayData(self):
+        """
+        Return a list of tuples containing day data in ascending tag order.
+        """
+        return self._getData(self.dayData)
+    
+    def getMonthData(self):
+        """
+        Return a list of tuples containing month data in ascending tag order.
+        """
+        return self._getData(self.monthData)
+
+    def getYearData(self):
+        """
+        Return a list of tuples containing year data in ascending tag order.
+        """
+        return self._getData(self.yearData)
+    
     def storeHourData(self, key, value):
+        """
+        Store an hour datapoint
+        """
         self.hourData[key] = value
+        self._checkForActualData(value)
         
     def storeDayData(self, key, value):
+        """
+        Store a day datapoint
+        """
         self.dayData[key] = value
+        self._checkForActualData(value)
         
     def storeMonthData(self, key, value):
+        """
+        Store a month datapoint
+        """
         self.monthData[key] = value
-
+        self._checkForActualData(value)
+                
     def storeYearData(self, key, value):
+        """
+        Store a year datapoint
+        """
         self.yearData[key] = value
+        self._checkForActualData(value)
 
     def storeDataPoints(self, timestamp, datapoints):
         """
-        Store any kind of historical data point. History entries might exist
-        for hour, day, month, year. Handle all variants of data point kind.
+        Store any kind of historical datapoints. History entries might exist
+        for hour, day, month, year. Handle all variants of datapoint kind.
         
         @param timestamp: timestamp of the last history update received 
         @type timestamp: datetime
@@ -155,9 +235,6 @@ class HistoricalSensorData(object):
         self.last_update = timestamp
         for tag, value in datapoints:
             history_data_kind = self._getDataPointKind(tag)
-            
-            if float(value) > 0:
-                self.nonZeroDataPresent = True
             
             if history_data_kind == HistoricalSensorData.Historic_Hour_Data:
                 self.storeHourData(tag, value)
@@ -173,52 +250,64 @@ class HistoricalSensorData(object):
                 
             else:
                 logging.warning("Don't know how to handle historical tag %s with value %s" % (tag, value))  
-                  
+
+
+    def toJson(self):
+        """
+        Return a JSON format encoding of this sensor historical data.
+        """
+        d = {}
+        d['type'] = self.type
+        d['instance'] = self.instance
+        d['timestamp'] = str(self.last_update)
+        d['units'] = self.units
+        d['data'] = {'hour' : self.getHourData(),
+                     'day' : self.getDayData(),
+                     'month' : self.getMonthData(),
+                     'year' : self.getYearData()}
+        return json.dumps(d)
+    
         
     def __str__(self):
+        """
+        Return a string representation of this object
+        """
         o = []
         
-        if self.last_update is None:
-            o.append("Sensor: %s - No historical data" % self.instance)
-        else:        
+        if self.dataPresent:        
             o.append("Sensor: %s [%s]" % (self.instance, Sensors.nameForKind(self.type)))
-
+            o.append("Last update: %s" % (self.last_update))
             if self.hourData:
                 o.append("Historical Hour Data:")
-                hourDataKeys = self.hourData.keys()
-                for hourDataKey in hourDataKeys:
-                    hourDataValue = self.hourData[hourDataKey]
-                    o.append("\t%s %s %s" % (hourDataKey, hourDataValue, self.units))
+                for hourKey, hourValue in self.getHourData():
+                    o.append("\t%s %s %s" % (hourKey, hourValue, self.units))
             else:
                 o.append("No historical hour data available")
                 
             if self.dayData:
                 o.append("Historical Day Data:")
-                dayDataKeys = self.dayData.keys()
-                for dayDataKey in dayDataKeys:
-                    dayDataValue = self.dayData[dayDataKey]
-                    o.append("\t%s %s %s" % (dayDataKey, dayDataValue, self.units))
+                for dayKey, dayValue in self.getDayData():
+                    o.append("\t%s %s %s" % (dayKey, dayValue, self.units))
             else:
                 o.append("No historical day data available")
                 
             if self.monthData:
                 o.append("Historical Month Data:")
-                monthDataKeys = self.monthData.keys()
-                for monthDataKey in monthDataKeys:
-                    monthDataValue = self.monthData[monthDataKey]
-                    o.append("\t%s %s %s" % (monthDataKey, monthDataValue, self.units))
+                for monthKey, monthValue in self.getMonthData():
+                    o.append("\t%s %s %s" % (monthKey, monthValue, self.units))
             else:
                 o.append("No historical month data available")
                 
             if self.yearData:
                 o.append("Historical Year Data:")
-                yearDataKeys = self.yearData.keys()
-                for yearDataKey in yearDataKeys:
-                    yearDataValue = self.yearData[hourDataKey]
-                    o.append("\t%s %s %s" % (yearDataKey, yearDataValue, self.units))
+                for yearKey, yearValue in self.getMonthData():
+                    o.append("\t%s %s %s" % (yearKey, yearValue, self.units))
             else:
                 o.append("No historical year data available")
-                        
+                
+        else:
+            o.append("Sensor: %s - No historical data" % self.instance)
+                                    
         return "\n".join(o)
     
 
@@ -264,6 +353,9 @@ class CurrentCostDataProtocol(LineReceiver):
     def lineReceived(self, line):
         """ 
         Handle a CurrentCost message line from the serial port.
+        Parse the string into an ElementTree element and inspect
+        for which of the two message variants has been received
+        then dispatch to the handler.
         """
         logging.debug("Received a CurrentCost message with %i bytes" % (len(line)))
         
