@@ -5,7 +5,6 @@ txCurrentCost is a Python Twisted package that allows you to monitor your Curren
 The serial communication with the CurrentCost device uses the Twisted networking framework.
 Use it to integrate non blocking access to CurrentCost devices into your Python Twisted application.
 
-**txCurrentCost is currently under development**
 
 Software Dependencies
 ---------------------
@@ -32,14 +31,14 @@ Install
     
 For other download options (zip, tarball) visit the github web page of `txCurrentCost <https://github.com/claws/txCurrentCost>`_.
 
-2. Install txCurrentCost module into your Python distribution::
+2. Install txcurrentcost module into your Python distribution::
   
     sudo python setup.py install
     
 3. Test::
 
     $ python
-    >>> import txCurrentCost
+    >>> import txcurrentcost
     >>>
 
 
@@ -47,7 +46,7 @@ Example
 =======
 
 A simple demonstration script exists in the examples directory of the repository. It contains
-an example of how a developer would use the Monitor object to obtain periodic and history
+an example of how a developer would use the Monitor object to obtain periodic and historic
 update message data from the CurrentCost device.
 
 To run it you must update update the 'port' setting in the examples/monitor.cfg file to point

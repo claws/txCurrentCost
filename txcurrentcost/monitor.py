@@ -6,7 +6,7 @@ import logging
 import os
 import sys
 import ConfigParser
-import txCurrentCost
+import txcurrentcost
 from twisted.internet import reactor
 from twisted.python import usage
 
@@ -14,13 +14,15 @@ from twisted.python import usage
 
 
 class MonitorConfig(object):
-    """ Current Cost Configuration file """
+    """
+    Current Cost Configuration file
+    """
     
-    # secitons
+    # configuration sections
     CURRENT_COST_SECTION = "current_cost"
     SECTIONS = [CURRENT_COST_SECTION]
     
-    # fields
+    # configuration fields
     PORT = "port"
     BAUDRATE = "baudrate"
     CLAMP_COUNT = "clamp_count"
@@ -59,7 +61,13 @@ class MonitorConfig(object):
   
 
 class Monitor(object):
-    """ Monitor a current cost device. """
+    """ 
+    Monitor a current cost device.
+    
+    The monitor expects a MonitorConfig object passed to it as the config
+    argument but any object providing the port, baudrate, clamp_count and 
+    use_utc_timestamps attributes will suffice.
+    """
     
     def __init__(self, config):
         """
@@ -96,7 +104,7 @@ class Monitor(object):
                             sensor type and instance.
         
         Implement this method to handle data in the way you want. For example you may
-        want to update it to Pachube. Perhaps you want to store it for a while, average
+        want to send an update to Pachube. Perhaps you want to store it for a while, average
         it and then post it to Pachube. Whatever! 
         """
         pass
@@ -121,18 +129,22 @@ class Monitor(object):
         
                 
     def start(self):
-        """ Start the CurrenCost monitor """
+        """
+        Start the CurrenCost monitor
+        """
         logging.info('CurrentCostMonitor starting')
         logging.info('Attempting to open port %s at %dbps' % (self.config.port, self.config.baudrate))
-        self.protocol = txCurrentCost.CurrentCostDataProtocol(self._messageHandler)
-        self.serialPort = txCurrentCost.FixedSerialPort(self.protocol, 
-                                                      self.config.port, 
-                                                      reactor,
-                                                      baudrate=self.config.baudrate)
+        self.protocol = txcurrentcost.CurrentCostDataProtocol(self._messageHandler)
+        self.serialPort = txcurrentcost.FixedSerialPort(self.protocol, 
+                                                        self.config.port, 
+                                                        reactor,
+                                                        baudrate=self.config.baudrate)
        
 
     def stop(self):
-        """ Stop the CurrenCost monitor """
+        """
+        Stop the CurrenCost monitor
+        """
         logging.info('CurrentCostMonitor stopping')
         if self.protocol.transport:
             self.protocol.transport.loseConnection()
@@ -141,22 +153,24 @@ class Monitor(object):
 
     def _messageHandler(self, kind, message):
         """ 
-        Handle a CurrentCost message from the protocol. This method is passed
-        to the protocol as a message callback handler. 
+        Handle a CurrentCost message from the protocol and dispatch it to
+        the appropriate handler. This method get passed to the protocol 
+        during its construction so that it can pass messages back to the
+        monitor. 
         
         @param kind: The kind of message received
         @type kind: string
         @param message: An XML message string
         @type message: string
         """
-        if kind not in txCurrentCost.MessageKinds:
-            logging.error("Invalid message kind \'%s\' not in kinds: %s" % txCurrentCost.MessageKinds)
+        if kind not in txcurrentcost.MessageKinds:
+            logging.error("Invalid message kind \'%s\' not in kinds: %s" % txcurrentcost.MessageKinds)
             return
         
-        if kind == txCurrentCost.PeriodicUpdateMsg:
+        if kind == txcurrentcost.PeriodicUpdateMsg:
             self._parsePeriodicUpdate(message)
             
-        elif kind == txCurrentCost.HistoryUpdateMsg:
+        elif kind == txcurrentcost.HistoryUpdateMsg:
             self._parseHistoryUpdate(message)
 
         
@@ -186,10 +200,10 @@ class Monitor(object):
             identifier = msg.findtext("id")
             sensor_type = int(msg.findtext("type"))
 
-            if sensor_type == txCurrentCost.Sensors.ElectricitySensor:
+            if sensor_type == txcurrentcost.Sensors.ElectricitySensor:
                 
                 # channel indexes start from 1, not zero.
-                if sensor_instance == txCurrentCost.Sensors.WholeHouseSensorId:
+                if sensor_instance == txcurrentcost.Sensors.WholeHouseSensorId:
                     # The whole house sensor supports multiple channels.
                     channels = range(1, self.config.clamp_count+1)
                 else:
@@ -204,7 +218,7 @@ class Monitor(object):
                         watts_on_channel.append(watts)
                 sensor_data = watts_on_channel
                     
-            elif sensor_type == txCurrentCost.Sensors.OptiSmartSensor:
+            elif sensor_type == txcurrentcost.Sensors.OptiSmartSensor:
                 imp = msg.findtext("imp")
                 imu = msg.findtext("ipu")
                 sensor_data = (imp, imu)
@@ -231,13 +245,18 @@ class Monitor(object):
     def _parseHistoryUpdate(self, msg):
         """
         Parse a historic update message for important information and
-        store it until the history message update cycle is completed.
+        store it until the complete history message update cycle is 
+        completed.
+        
         A cycle of history messages begins about 1 minute past every
-        hour.
-        A callback timer is started on receipt of the first history
-        message and the timer is extended upon receipt of each
-        subsequent history message. If no history message is received 
-        within the timeout period  to the user implemented handlePeriodicUpdate method.
+        odd hour.
+        
+        On receipt of the first history message a callback timer is 
+        started and the timer is extended upon receipt of each
+        subsequent history message. The expiry of the timer signifies
+        the completion of the history message cycle at which point
+        the accumulated history message data is passed to the user
+        implemented historyUpdateReceived method.
         """
         logging.debug("Parsing a history update message")
 
@@ -291,7 +310,7 @@ class Monitor(object):
                 sensor_instance = int(data_element.findtext("sensor"))
                 
                 if sensor_instance not in self.historicSensorData[sensor_type]:
-                    sensorHistoricalData = txCurrentCost.HistoricalSensorData(sensor_type, sensor_instance, sensor_units)
+                    sensorHistoricalData = txcurrentcost.HistoricalSensorData(sensor_type, sensor_instance, sensor_units)
                     self.historicSensorData[sensor_type][sensor_instance] = sensorHistoricalData
                     
                 logging.debug("Processing historical data for sensor %s" % sensor_instance)

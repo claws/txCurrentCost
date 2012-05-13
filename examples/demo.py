@@ -6,14 +6,14 @@
 
 from twisted.internet import reactor
 try:
-    import txCurrentCost
+    import txcurrentcost
 except ImportError:
-    # cater for situation where txCurrentCost is not installed into Python distribution
+    # cater for situation where txcurrentcost is not installed into Python distribution
     import os
     import sys
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    import txCurrentCost
-from txCurrentCost.monitor import MonitorConfig, Monitor
+    import txcurrentcost
+from txcurrentcost.monitor import MonitorConfig, Monitor
 
 
 
@@ -21,7 +21,7 @@ from txCurrentCost.monitor import MonitorConfig, Monitor
 
 class BasicMonitor(Monitor):
     """
-    Extends the txCurrentCost.monitor.Monitor by implementing periodic and history update
+    Extends the txcurrentcost.monitor.Monitor by implementing periodic and history update
     handlers to simply displays the data received from the current cost monitor. 
     """
     
@@ -42,12 +42,12 @@ class BasicMonitor(Monitor):
                             sensor type and instance.
         
         Implement this method to handle data in the way you want. For example you may
-        want to update it to Pachube. Perhaps you want to store it for a while, average
-        it and then post it to Pachube. Whatever!
+        want to update it to Cosm. Perhaps you want to store it for a while, average
+        it and then post it to Cosm. Whatever!
         """
         print "Periodic Update => timestamp=%s, temperature=%s, sensor_type=%s, sensor_instance=%s, sensor_data=%s" % (timestamp,
                                                                                                                        temperature, 
-                                                                                                                       txCurrentCost.Sensors.nameForType(sensor_type), 
+                                                                                                                       txcurrentcost.Sensors.nameForType(sensor_type), 
                                                                                                                        sensor_instance, 
                                                                                                                        sensor_data)
         
@@ -66,7 +66,7 @@ class BasicMonitor(Monitor):
         Implement this method to handle data in the way you want. For example you may
         want to store it to a database. Whatever!
         """
-        print "History Update => sensor_type=%s" % (txCurrentCost.Sensors.nameForType(sensor_type))
+        print "History Update => sensor_type=%s" % (txcurrentcost.Sensors.nameForType(sensor_type))
         for sensor_id, sensorHistoricalData in sensorHistoryData.items():
             print "History for sensor id: %s" % sensor_id
             print sensorHistoricalData
