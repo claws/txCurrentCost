@@ -146,7 +146,7 @@ class Monitor(object):
         Stop the CurrenCost monitor
         """
         logging.info('CurrentCostMonitor stopping')
-        if self.protocol.transport:
+        if self.protocol and self.protocol.transport:
             self.protocol.transport.loseConnection()
         self.serialPort.close()
 
