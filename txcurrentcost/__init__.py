@@ -1,15 +1,24 @@
 
+'''
+This module defines common Current Cost classes such as
+Sensors, History data store and the protocol used to
+communicate with the Current Cost device.
+
+The Current Cost message defintion is defined at:
+http://www.currentcost.com/cc128/xml.htm
+'''
+
 import json
+import logging
 try:
     from xml.etree import cElementTree as etree
 except ImportError:
     import xml.etree.ElementTree as etree
-import logging
 from twisted.internet.serialport import SerialPort
 from twisted.protocols.basic import LineReceiver
 
 
-version = (0,0,1)
+version = (0,0,2)
 
 
 # Define the kinds of messages that can be received from the CurrentCost device
@@ -60,44 +69,45 @@ class Sensors(object):
     @classmethod
     def nameForType(cls, sensor_type):
         if sensor_type in Sensors.Types:
-            return Sensors.Names[sensor_type]
+            name = Sensors.Names[sensor_type]
         else:
             logging.warning("Invalid sensor type \'%s\' not in %s - can't return name" % (sensor_type, Sensors.Types))
-            return "Unknown"
+            name = "Unknown"
+        return name
         
     @classmethod
-    def unitsForKind(cls, sensor_type):
-        if sensor_type in Sensors.Kinds:
-            return Sensors.Units[sensor_type]
+    def unitsForType(cls, sensor_type):
+        if sensor_type in Sensors.Types:
+            _type = Sensors.Units[sensor_type]
         else:
-            logging.warning("Invalid sensor type \'%s\' not in %s - can't return units" % (sensor_type, Sensors.Kinds))
-            return "Unknown"
-        
+            logging.warning("Invalid sensor type \'%s\' not in %s - can't return units" % (sensor_type, Sensors.Types))
+            _type = "Unknown"
+        return _type
 
 
 
-class HistoricalSensorData(object):
-    """ Store historical data for a single Current Cost sensor """
+class SensorHistoryData(object):
+    """ Store history data for a single Current Cost sensor """
     
-    Historic_Hour_Data = 'hour'
-    Historic_Day_Data = 'day'
-    Historic_Month_Data = 'month'
-    Historic_Year_Data = 'year'    
+    Hour_Data = 'hour'
+    Day_Data = 'day'
+    Month_Data = 'month'
+    Year_Data = 'year'    
     
-    Historic_Hour_Data_Prefix = 'h'
-    Historic_Day_Data_Prefix = 'd'
-    Historic_Month_Data_Prefix = 'm'
-    Historic_Year_Data_Prefix = 'y'
+    Hour_Data_Prefix = 'h'
+    Day_Data_Prefix = 'd'
+    Month_Data_Prefix = 'm'
+    Year_Data_Prefix = 'y'
     
-    Historic_Data_Prefixes = [Historic_Hour_Data_Prefix,
-                              Historic_Day_Data_Prefix,
-                              Historic_Month_Data_Prefix,
-                              Historic_Year_Data_Prefix]
+    Prefixes = [Hour_Data_Prefix,
+                Day_Data_Prefix,
+                Month_Data_Prefix,
+                Year_Data_Prefix]
     
-    Prefix_To_Data_Kind_Map = {Historic_Hour_Data_Prefix : Historic_Hour_Data,
-                               Historic_Day_Data_Prefix : Historic_Day_Data,
-                               Historic_Month_Data_Prefix : Historic_Month_Data,
-                               Historic_Year_Data_Prefix : Historic_Year_Data}
+    Prefix_To_Data_Kind_Map = {Hour_Data_Prefix : Hour_Data,
+                               Day_Data_Prefix : Day_Data,
+                               Month_Data_Prefix : Month_Data,
+                               Year_Data_Prefix : Year_Data}
     
     def __init__(self, sensor_type, sensor_instance, sensor_units):
         
@@ -112,49 +122,41 @@ class HistoricalSensorData(object):
         self.monthData = {}
         self.yearData = {}
         
-        # A flag to declare that this sensor has non-zero data. CurrentCost
+        # This flag declares that this sensor has non-zero data. CurrentCost
         # history messages contain a full complement of hour, day, month,
         # year entries even when the content is entirely zeros. If any value
         # is non-zero this flag is set. This can be useful if we only want to 
-        # process historical sensor data that actually contains data.
+        # process history data for a sensor that actually contains data.
         self.dataPresent = False
 
 
     def _getDataPointKind(self, tag):
         """ 
-        Detect the kind of history data point kind of the tag
+        Detect the kind of history data point by inspecting the tag.
+        Examples of tags are: (h,018), (d,054), (m,002), (y,001)
         """
         tag_prefix = tag[0]
-        if tag_prefix in HistoricalSensorData.Historic_Data_Prefixes:
-            history_data_kind = HistoricalSensorData.Prefix_To_Data_Kind_Map[tag_prefix]
+        if tag_prefix in SensorHistoryData.Prefixes:
+            history_data_kind = SensorHistoryData.Prefix_To_Data_Kind_Map[tag_prefix]
             return history_data_kind
         else:
             logging.error("Unknown tag prefix \'%s\', can't resolve to history data kind" % (tag_prefix)) 
-
- 
-    def _sortKeys(self, keys):
-        """
-        Sort data keys in correct order
-        """
-        # tuples are sorted by the first index by default, so place
-        # the integer value of the key at index zero and sort.
-        key_and_value_list = [(int(key[1:]), key) for key in keys]
-        key_and_value_list.sort()
-        ordered_keys = [key for value, key in key_and_value_list]
-        return ordered_keys
 
     
     def _getData(self, dataDict):
         """
         Return a list of tuples containing the data in ascending tag order.
-        Each tuple contains the data tag and the value. This approach
-        ensures the data is returned in correct order and also keeps the
-        data tag with the value - which means the value can't be misinterpreted
-        as belonging to a different tag in cases where intervening tags are
-        missing.
+        Each tuple in the list contains the data tag (itself a 2-tuple of 
+        tag prefix and index) and the value. 
+        The data key is kept associated with the value (rather than simply a
+        list of values) so that the value can't be misinterpreted as belonging
+        to a different tag in cases where intervening tags are missing.
         """
+        # Sort the data keys using the integer value of the key index which
+        # is the second field in the data key tuple.
+        dataKeys = dataDict.keys()
+        dataKeys.sort(key=lambda x: int(x[1]))
         sortedData = []
-        dataKeys = self._sortKeys(dataDict.keys())
         for dataKey in dataKeys:
             datapoint = (dataKey, dataDict[dataKey])
             sortedData.append(datapoint)
@@ -236,16 +238,16 @@ class HistoricalSensorData(object):
         for tag, value in datapoints:
             history_data_kind = self._getDataPointKind(tag)
             
-            if history_data_kind == HistoricalSensorData.Historic_Hour_Data:
+            if history_data_kind == SensorHistoryData.Hour_Data:
                 self.storeHourData(tag, value)
                 
-            elif history_data_kind == HistoricalSensorData.Historic_Day_Data:
+            elif history_data_kind == SensorHistoryData.Day_Data:
                 self.storeDayData(tag, value)
                 
-            elif history_data_kind == HistoricalSensorData.Historic_Month_Data:
+            elif history_data_kind == SensorHistoryData.Month_Data:
                 self.storeMonthData(tag, value)
                 
-            elif history_data_kind == HistoricalSensorData.Historic_Year_Data:
+            elif history_data_kind == SensorHistoryData.Year_Data:
                 self.storeYearData(tag, value)
                 
             else:
@@ -254,7 +256,7 @@ class HistoricalSensorData(object):
 
     def toJson(self):
         """
-        Return a JSON format encoding of this sensor historical data.
+        Return a JSON format encoding of this sensor's historical data.
         """
         d = {}
         d['type'] = self.type
@@ -275,38 +277,38 @@ class HistoricalSensorData(object):
         o = []
         
         if self.dataPresent:        
-            o.append("Sensor: %s [%s]" % (self.instance, Sensors.nameForKind(self.type)))
+            o.append("Sensor: %s [%s]" % (self.instance, Sensors.nameForType(self.type)))
             o.append("Last update: %s" % (self.last_update))
             if self.hourData:
-                o.append("Historical Hour Data:")
+                o.append("Hour Data:")
                 for hourKey, hourValue in self.getHourData():
                     o.append("\t%s %s %s" % (hourKey, hourValue, self.units))
             else:
-                o.append("No historical hour data available")
+                o.append("No hour data history available")
                 
             if self.dayData:
-                o.append("Historical Day Data:")
+                o.append("Day Data:")
                 for dayKey, dayValue in self.getDayData():
                     o.append("\t%s %s %s" % (dayKey, dayValue, self.units))
             else:
-                o.append("No historical day data available")
+                o.append("No day data history available")
                 
             if self.monthData:
-                o.append("Historical Month Data:")
+                o.append("Month Data:")
                 for monthKey, monthValue in self.getMonthData():
                     o.append("\t%s %s %s" % (monthKey, monthValue, self.units))
             else:
-                o.append("No historical month data available")
+                o.append("No month data history available")
                 
             if self.yearData:
-                o.append("Historical Year Data:")
+                o.append("Year Data:")
                 for yearKey, yearValue in self.getMonthData():
                     o.append("\t%s %s %s" % (yearKey, yearValue, self.units))
             else:
-                o.append("No historical year data available")
+                o.append("No year data history available")
                 
         else:
-            o.append("Sensor: %s - No historical data" % self.instance)
+            o.append("Sensor: %s - No history data" % self.instance)
                                     
         return "\n".join(o)
     

@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 
+'''
+This module implements the Current Cost monitor class.
+'''
 
 import datetime
 import logging
@@ -12,10 +15,13 @@ from twisted.python import usage
 
 
 
+class MonitorOptions(usage.Options):
+    optParameters = [['configfile', 'c', None, 'Configuration file path']]
+
 
 class MonitorConfig(object):
     """
-    Current Cost Configuration file
+    Current Cost Monitor Configuration
     """
     
     # configuration sections
@@ -104,8 +110,8 @@ class Monitor(object):
                             sensor type and instance.
         
         Implement this method to handle data in the way you want. For example you may
-        want to send an update to Pachube. Perhaps you want to store it for a while, average
-        it and then post it to Pachube. Whatever! 
+        want to send an update to Cosm. Perhaps you want to store it for a while, average
+        it and then post it to Cosm. Whatever! 
         """
         pass
         
@@ -187,7 +193,7 @@ class Monitor(object):
             # Ignore the unit timestamp in preference for a
             # computer generated timestamp that can more
             # easily be used when updating data points at
-            # sites like pachube.
+            # sites like Cosm.
             #timestamp = msg.findtext("time")
             if self.config.use_utc_timestamps:
                 timestamp = datetime.datetime.utcnow()
@@ -230,13 +236,14 @@ class Monitor(object):
             
             # pass message data on to user implemented method
             self.periodicUpdateReceived(timestamp,
-                                       temperature,
-                                       sensor_type,
-                                       sensor_instance,
-                                       sensor_data)
+                                        temperature,
+                                        sensor_type,
+                                        sensor_instance,
+                                        sensor_data)
            
         except Exception, ex:
-            logging.error("Problem processing periodic update: %s" % ex)
+            logging.exception(ex)
+            logging.error("Problem processing periodic update")
             return        
 
 
@@ -244,12 +251,13 @@ class Monitor(object):
                        
     def _parseHistoryUpdate(self, msg):
         """
-        Parse a historic update message for important information and
+        Parse a history update message for important information and
         store it until the complete history message update cycle is 
-        completed.
+        completed. A history update is one message among many that 
+        form the history update cycle set of messages.
         
-        A cycle of history messages begins about 1 minute past every
-        odd hour.
+        The Current Cost device begins emitting set of history 
+        messages about 1 minute past every odd hour.
         
         On receipt of the first history message a callback timer is 
         started and the timer is extended upon receipt of each
@@ -266,7 +274,7 @@ class Monitor(object):
             # Ignore the unit timestamp in preference for a
             # computer generated timestamp that can more
             # easily be used when updating data points at
-            # sites like pachube.
+            # sites like Cosm.
             #timestamp = msg.findtext("time")
             if self.config.use_utc_timestamps:
                 timestamp = datetime.datetime.utcnow()
@@ -290,10 +298,9 @@ class Monitor(object):
             # Start a callback timer, for this particular sensor type, that will be 
             # used to detect the completion of the historic data message cycle and
             # pass the collected historic data to the handleHistoryUpdate method.
-            # If a message is received within the timeout window then the reset.
+            # If a message is received within the timeout window then delay the 
+            # timer and additional timeout period.
             #
-
-                
             if self.historicalDataUpdateCompleteForSensorType[sensor_type] is None:
                 self.historicalDataUpdateCompleteForSensorType[sensor_type] = reactor.callLater(self.historicDataMessageTimeout, 
                                                                                                 self._historicalDataUpdateCompleted,
@@ -310,7 +317,7 @@ class Monitor(object):
                 sensor_instance = int(data_element.findtext("sensor"))
                 
                 if sensor_instance not in self.historicSensorData[sensor_type]:
-                    sensorHistoricalData = txcurrentcost.HistoricalSensorData(sensor_type, sensor_instance, sensor_units)
+                    sensorHistoricalData = txcurrentcost.SensorHistoryData(sensor_type, sensor_instance, sensor_units)
                     self.historicSensorData[sensor_type][sensor_instance] = sensorHistoricalData
                     
                 logging.debug("Processing historical data for sensor %s" % sensor_instance)
@@ -328,7 +335,8 @@ class Monitor(object):
                 historicalSensorData.storeDataPoints(timestamp, datapoints)
                 
         except Exception, ex:
-            logging.error("Problem processing history update message: %s" % ex)
+            logging.exception(ex)
+            logging.error("Problem processing history update message")
             return                    
 
 
@@ -354,45 +362,5 @@ class Monitor(object):
         self.historyUpdateReceived(sensor_type, sensorsWithHistoricalData)
 
 
-
-
-
-
-
-
-class MonitorOptions(usage.Options):
-    optParameters = [['configfile', 'c', None, 'Configuration file path']]
-
-
-
-
-
-if __name__ == "__main__":
-
-
-    # Run using:
-    # $python monitor.py --configfile=currentcost.cfg 
-
-    from twisted.python import log
-    
-    o = MonitorOptions()
-    try:
-        o.parseOptions()
-    except usage.UsageError, errortext:
-        print "%s: %s" % (sys.argv[0], errortext)
-        print "%s: Try --help for usage details." % (sys.argv[0])
-        raise SystemExit, 1
-
-    # Send Twisted log messages to logging logger
-    _observer = log.PythonLoggingObserver()
-    _observer.start()
-    
-    logging.basicConfig(level=logging.DEBUG,
-                        format="%(asctime)s %(levelname)s [%(funcName)s] %(message)s")
-
-    config_file = o.opts['configfile']
-    monitor = Monitor(config_file)
-    reactor.callWhenRunning(monitor.start)
-    reactor.run()
     
     

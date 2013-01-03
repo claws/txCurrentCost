@@ -1,2 +1,3 @@
 # ignore complied Python files
 *.pyc
+*.DS_Store

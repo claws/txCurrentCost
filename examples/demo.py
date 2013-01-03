@@ -1,70 +1,48 @@
 #!/usr/bin/env python
 #
-# Run using:
-# $python demo.py 
-#
+'''
+This script implements a demonstration Current Cost monitor.
+
+Modify the monitor.cfg file to define the correct port
+for the monitor to use then run the demo script using:
+
+$ python demo.py --configfile=monitor.cfg 
+'''
 
 from twisted.internet import reactor
+from twisted.python import log
+import logging
 try:
     import txcurrentcost
+    from txcurrentcost.monitor import MonitorOptions, MonitorConfig, Monitor
 except ImportError:
-    # cater for situation where txcurrentcost is not installed into Python distribution
-    import os
+    print "Unable to import txcurrentcost. Install the package or make is visible using PYTHONPATH"
     import sys
-    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    import txcurrentcost
-from txcurrentcost.monitor import MonitorConfig, Monitor
+    sys.exit(1)
 
 
 
-
-
-class BasicMonitor(Monitor):
+class DemoMonitor(Monitor):
     """
-    Extends the txcurrentcost.monitor.Monitor by implementing periodic and history update
-    handlers to simply displays the data received from the current cost monitor. 
+    Extends the txcurrentcost.monitor.Monitor by implementing periodic 
+    and history update handlers to simply display the data received 
+    from the current cost monitor. 
     """
     
     def periodicUpdateReceived(self, timestamp, temperature, sensor_type, sensor_instance, sensor_data):
         """ 
-        Called to notify receipt of a periodic update message after parsing important 
-        information from the message xml. 
-        
-        @param timestamp: A computer generated utc timestamp generated on receipt of message
-        @type timestamp: datetime.datetime
-        @param temperature: The temperature reported by the display unit
-        @type temperature: string
-        @param sensor_type: The sensor type that triggered the periodic message
-        @type sensor_type:
-        @param sensor_instance: The sensor instance that triggered the periodic message
-        @type sensor_instance: 
-        @param sensor_data: sensor specific periodic data. This can vary depending on the 
-                            sensor type and instance.
-        
-        Implement this method to handle data in the way you want. For example you may
-        want to update it to Cosm. Perhaps you want to store it for a while, average
-        it and then post it to Cosm. Whatever!
+        Called upon receiving a periodic update message. 
         """
         print "Periodic Update => timestamp=%s, temperature=%s, sensor_type=%s, sensor_instance=%s, sensor_data=%s" % (timestamp,
                                                                                                                        temperature, 
                                                                                                                        txcurrentcost.Sensors.nameForType(sensor_type), 
                                                                                                                        sensor_instance, 
                                                                                                                        sensor_data)
-        
-        
+
     def historyUpdateReceived(self, sensor_type, sensorHistoryData):
         """
-        Called to notify receipt of a history update message after the completion of
+        Called upon receiving a history update message after the completion of
         a history update message cycle. 
-        
-        @param sensor_type: The sensor that reported the history update
-        @type sensor_type: A Sensors.Types item
-        @param sensorHistoryData: A dict keyed by sensor identifier with values of
-                                  HistoricalSensorData objects.
-        @type sensorHistoryData: dict
-        
-        Implement this method to handle data in the way you want. For example you may
-        want to store it to a database. Whatever!
         """
         print "History Update => sensor_type=%s" % (txcurrentcost.Sensors.nameForType(sensor_type))
         for sensor_id, sensorHistoricalData in sensorHistoryData.items():
@@ -74,10 +52,24 @@ class BasicMonitor(Monitor):
             
             
 if __name__ == "__main__":
-    import logging
-    logging.basicConfig(level=logging.DEBUG)
 
-    monitorConfig = MonitorConfig('monitor.cfg')
-    monitor = BasicMonitor(monitorConfig)
+    logging.basicConfig(level=logging.DEBUG,
+                        format="%(asctime)s %(levelname)s [%(funcName)s] %(message)s")
+
+    # Send Twisted log messages to logging logger
+    _observer = log.PythonLoggingObserver()
+    _observer.start()
+
+    o = MonitorOptions()
+    try:
+        o.parseOptions()
+    except usage.UsageError, errortext:
+        print "%s: %s" % (sys.argv[0], errortext)
+        print "%s: Try --help for usage details." % (sys.argv[0])
+        raise SystemExit, 1
+
+ 
+    config = MonitorConfig(o.opts['configfile'])
+    monitor = DemoMonitor(config)
     reactor.callWhenRunning(monitor.start)
     reactor.run()

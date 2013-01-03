@@ -30,7 +30,12 @@ setup(name='txcurrentcost',
                    'License :: OSI Approved :: MIT License',
                    'Operating System :: OS Independent',
                    'Programming Language :: Python',
-                   'Framework :: Twisted']
+                   'Framework :: Twisted',
+                   'Topic :: Communications',
+                   'Topic :: Home Automation',
+                   'Topic :: System :: Monitoring',
+                   'Topic :: Software Development :: Libraries :: Python Modules'],
+      requires=['pyserial', 'Twisted']
       )
 
 
