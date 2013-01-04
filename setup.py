@@ -8,14 +8,14 @@ from distutils.core import setup
 import txcurrentcost
 
 
-long_description = """txcurrentcost is a Python Twisted package that allows you to monitor your CurrentCost device. 
+long_description = """txcurrentcost is a Python Twisted package that lets you monitor your CurrentCost device.
 The serial communication with the CurrentCost device uses the Twisted networking framework.
 Use txcurrentcost to integrate non blocking access to CurrentCost devices into your Python Twisted application."""
 
 
 setup(name='txcurrentcost',
       version='.'.join([str(x) for x in txcurrentcost.version]),
-      description='txcurrentcost is a Python Twisted package that allows you to monitor your CurrentCost device.',
+      description='txcurrentcost is a Python Twisted package that lets you monitor your CurrentCost device.',
       long_description=long_description,
       author='Chris Laws',
       author_email='clawsicus@gmail.com',
