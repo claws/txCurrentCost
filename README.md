@@ -1,11 +1,10 @@
 # txCurrentCost
 
-txCurrentCost is a Python Twisted package that allows you to monitor your CurrentCost device.
-The serial communication with the CurrentCost device uses the Twisted networking framework.
-Use it to integrate non blocking access to CurrentCost devices into your Python Twisted application.
-
+txCurrentCost is a Python Twisted package that lets you monitor your CurrentCost device. Use the txcurrentcost package to integrate non blocking access to CurrentCost devices into your Python Twisted application.
 
 ## Software Dependencies
+
+### Python Dependencies
 
 * Python
 * pyserial
@@ -13,6 +12,7 @@ Use it to integrate non blocking access to CurrentCost devices into your Python 
 
   - zope.interface
 
+### Non-Python Dependencies
 * Serial-to-USB driver. Typically the common way to communicate with CurrentCost devices on modern computers is through a serial to USB adaptor. Do a Google search for 'pl2303 driver' and your platform.
 
   Here is one [example](https://github.com/mpepping/osx-pl2303) that seems more up to date that the original [failberg](http://github.com/downloads/failberg/osx-pl2303) version I was running.
@@ -44,7 +44,7 @@ $ cd txCurrentCost
 $ [sudo] python setup.py install
 ```
 
-## Test
+### Test Installation
 
 ```bash
 $ python
