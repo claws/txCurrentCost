@@ -2,6 +2,8 @@
 
 txCurrentCost is a Python Twisted package that lets you monitor your CurrentCost device. Use the txcurrentcost package to integrate non blocking access to CurrentCost devices into your Python Twisted application.
 
+![PyPi version](https://pypip.in/v/txcurrentcost/badge.png) &nbsp;&nbsp; ![PyPi version](https://pypip.in/d/txcurrentcost/badge.png)
+
 ## Software Dependencies
 
 ### Python Dependencies
