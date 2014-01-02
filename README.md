@@ -74,3 +74,5 @@ Periodic Update => timestamp=2012-01-10 09:56:12.202030temperature=21.8, sensor_
 ```
 
 History updates may be displayed if they are encountered while running the demo script. However, these are only sent at intervals of approximately 1 minute past every odd hour so this is unlikely.
+
+[![Analytics](https://ga-beacon.appspot.com/UA-29867375-2/txCurrentCost/readme?pixel)](https://github.com/claws/txCurrentCost)
